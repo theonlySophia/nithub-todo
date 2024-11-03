@@ -6,6 +6,8 @@ import AsyncHandler from "express-async-handler";
 
 import {sequelize} from "../Config/db.js";
 import {User_Table} from "../Models/user_Table.js";
+import {Task_Details} from "../Models/Task_Details.js";
+import{Task_Info} from "../Models/Task_Info.js";
 import {hashPassword, comparePasswords} from "../Utils/passwords.js";
 import {signToken, signRefreshToken} from "../Utils/token.js";
 
@@ -94,3 +96,84 @@ export const userLogin = AsyncHandler(async(req,res,next)=>{
 });
 
 //create task controller
+// task is inputed into both task info and task details
+export const createTask = AsyncHandler(async(req,res,next)=>{
+    try{
+        const {emailAddress} = req.body;
+        if(emailAddress){
+           const{taskName, description, status, taskDetails} = req.body; 
+           if(!taskName || !description || !status ||!taskDetails){
+            res.status(400);
+            throw new Error("Values needed");
+           }
+           const user = await User_Table.findOne({
+            where: {emailAddress: emailAddress},
+        }); 
+        console.log(user);
+          if(user){
+           const userID = user.userID;
+           const task = await Task_Info.create({taskName: taskName, description:description, status:status, userID:userID,
+            Task_Details: [
+                {taskDetails: taskDetails, status:status}
+            ]
+           }, {
+            include: [Task_Details]
+           });
+           return res.status(200).json({
+            message: "task created successfully",
+            data: task
+        });
+        }
+        
+    }
+        else{
+            res.status(400);
+            throw new Error("Email address not found");
+        
+    }
+
+
+    }catch(error){
+        next(error);
+    }
+});
+
+//get task by date controller
+export const getTask = AsyncHandler(async(req,res,next)=>{
+    try{
+        const {emailAddress, createdAt} = req.body;
+        if(!emailAddress){
+            res.status(400)
+            throw new Error ("invalid input")
+        }
+        if (!createdAt) {
+            res.status(400);
+            throw new Error("Date is required");
+        }
+        const user = await User_Table.findOne({
+            where: {emailAddress: emailAddress},
+        });
+        const userID = user.userID;
+        if(user){
+            const getTasks = await Task_Info.findOne({
+                where: {userID: userID, createdAt: createdAt},
+                include: [{
+                    model: Task_Details,
+                }]
+            });
+            return res.status(200).json({
+                message: "Tasks returned successfully",
+                data: getTasks
+            });
+
+        }
+        res.status(400);
+        throw new Error("user not found");
+    }catch(error){
+        next(error);
+    }
+
+})
+
+//update tasks controller
+//const updateTask = 
